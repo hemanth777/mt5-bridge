@@ -1,9 +1,32 @@
 #!/usr/bin/env node
 const fs = require('fs');
+const path = require('path');
 
-const REQUEST_PATH = process.env.MT5_RPC_REQUEST_JSON || 'mt5_rpc_request.json';
-const OUTPUT_PATH = process.env.MT5_RPC_OUTPUT_JSON || 'mt5_rpc_output.json';
-const RPC_URL = process.env.MT5_RPC_URL || 'http://192.168.8.105:8080/rpc';
+const SCRIPT_DIR = __dirname;
+const ENV_PATH = path.join(SCRIPT_DIR, '.env');
+
+function loadDotEnv(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const idx = trimmed.indexOf('=');
+    if (idx <= 0) continue;
+    const key = trimmed.slice(0, idx).trim();
+    const value = trimmed.slice(idx + 1).trim();
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+
+loadDotEnv(ENV_PATH);
+
+const REQUEST_PATH = process.env.MT5_RPC_REQUEST_JSON || path.join(SCRIPT_DIR, 'mt5_rpc_request.json');
+const OUTPUT_PATH = process.env.MT5_RPC_OUTPUT_JSON || path.join(SCRIPT_DIR, 'mt5_rpc_output.json');
+const RPC_HOST = process.env.MT5_RPC_HOST || '192.168.8.105';
+const RPC_PORT = process.env.MT5_RPC_PORT || '8080';
+const RPC_SCHEME = process.env.MT5_RPC_SCHEME || 'http';
+const RPC_URL = process.env.MT5_RPC_URL || `${RPC_SCHEME}://${RPC_HOST}:${RPC_PORT}/rpc`;
 const API_KEY = process.env.MT5_RPC_API_KEY || process.env.API_KEY || '';
 
 function fail(msg, extra = {}) {

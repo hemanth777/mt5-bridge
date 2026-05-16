@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "httpStatus": 200,
+  "request": {
+    "function_name": "account_info",
+    "kwargs": {}
+  },
+  "response": {
+    "ok": true,
+    "result": [
+      463422906,
+      0,
+      2000,
+      1024,
+      0,
+      true,
+      true,
+      2,
+      2,
+      false,
+      5000,
+      0,
+      0,
+      5000,
+      0,
+      5000,
+      0,
+      30,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      "Pro",
+      "Exness-MT5Trial17",
+      "USD",
+      "Exness Technologies Ltd"
+    ]
+  },
+  "rpcUrl": "http://192.168.8.105:8080/rpc",
+  "timestamp": "2026-05-16T15:36:49.983Z"
+}

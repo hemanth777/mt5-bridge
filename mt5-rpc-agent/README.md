@@ -3,8 +3,13 @@
 Simple Node agent that talks to your MT5 HTTP RPC gateway.
 
 ## Env
-- `MT5_RPC_URL` (default: `http://192.168.8.105:8080/rpc`)
+The agent auto-loads `.env` from this folder.
+
 - `MT5_RPC_API_KEY` (required)
+- `MT5_RPC_HOST` (default: `192.168.8.105`)
+- `MT5_RPC_PORT` (default: `8080`)
+- `MT5_RPC_SCHEME` (default: `http`)
+- `MT5_RPC_URL` (optional full override; takes priority)
 
 ## Input
 - `MT5_RPC_REQUEST_JSON` (default: `mt5_rpc_request.json`)
@@ -14,5 +19,7 @@ Simple Node agent that talks to your MT5 HTTP RPC gateway.
 
 ## Run
 ```bash
-MT5_RPC_API_KEY='***' node mt5_rpc_agent.js
+cp .env.example .env
+# edit .env values
+node mt5_rpc_agent.js
 ```
