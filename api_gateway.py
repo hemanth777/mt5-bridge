@@ -1,5 +1,6 @@
 import time
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -15,6 +16,32 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s"
 )
 log = logging.getLogger("mt5-gateway")
+
+
+def load_local_env():
+    candidates = [
+        Path(__file__).resolve().parent / ".env",
+        Path.cwd() / ".env",
+    ]
+    for p in candidates:
+        if not p.exists():
+            continue
+        for line in p.read_text(encoding="utf-8").splitlines():
+            s = line.strip()
+            if not s or s.startswith("#") or "=" not in s:
+                continue
+            k, v = s.split("=", 1)
+            k = k.strip()
+            v = v.strip()
+            if k and k not in os.environ:
+                os.environ[k] = v
+        return str(p)
+    return None
+
+
+_env_loaded_from = load_local_env()
+if _env_loaded_from:
+    log.info("Loaded .env from %s", _env_loaded_from)
 
 API_KEY = os.getenv("API_KEY", "").strip()
 ACCOUNT = int(os.getenv("MT5_ACCOUNT", os.getenv("MT5_LOGIN", "0")) or 0)
