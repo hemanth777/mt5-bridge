@@ -1,0 +1,20 @@
+{
+  "baseUrl": "http://<MT5_HOST_IP>:8080/rpc",
+  "authHeader": "x-api-key: <API_KEY>",
+  "calls": [
+    { "name": "account_info", "body": { "function_name": "account_info" } },
+    { "name": "terminal_info", "body": { "function_name": "terminal_info" } },
+    { "name": "open_positions", "body": { "function_name": "positions_get" } },
+    {
+      "name": "closed_positions_last_24h",
+      "body": {
+        "function_name": "history_deals_get",
+        "kwargs": { "date_from": "<ISO_FROM>", "date_to": "<ISO_TO>" }
+      }
+    },
+    {
+      "name": "symbol_info_tick",
+      "body": { "function_name": "symbol_info_tick", "kwargs": { "symbol": "BTCUSD" } }
+    }
+  ]
+}
