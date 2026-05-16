@@ -16,10 +16,11 @@ logging.basicConfig(
 )
 log = logging.getLogger("mt5-gateway")
 
-API_KEY = "***"
-ACCOUNT = ****
-PASSWORD = "***"
-SERVER = "***"
+API_KEY = os.getenv("API_KEY", "").strip()
+ACCOUNT = int(os.getenv("MT5_ACCOUNT", os.getenv("MT5_LOGIN", "0")) or 0)
+PASSWORD = os.getenv("MT5_PASSWORD", "")
+SERVER = os.getenv("MT5_SERVER", "")
+MT5_PATH = os.getenv("MT5_PATH", "").strip()
 
 ALLOWED_FUNCTIONS = {
     "account_info",
@@ -42,6 +43,7 @@ ALLOWED_FUNCTIONS = {
 
 _CLOSED = False
 
+
 class RpcBody(BaseModel):
     function_name: str
     kwargs: Dict[str, Any] = Field(default_factory=dict)
@@ -62,13 +64,12 @@ def to_jsonable(obj: Any):
         return {k: to_jsonable(v) for k, v in obj._asdict().items()}
     return str(obj)
 
+
 def kill_mt5_terminal():
-    # Works on Windows host only
     if os.name != "nt":
         return
 
-    mt5_path = os.getenv("MT5_PATH", "").strip()
-    image = os.path.basename(mt5_path) if mt5_path else "terminal64.exe"
+    image = os.path.basename(MT5_PATH) if MT5_PATH else "terminal64.exe"
     if not image.lower().endswith(".exe"):
         image = "terminal64.exe"
 
@@ -92,7 +93,6 @@ def shutdown_cleanup():
     except Exception:
         pass
 
-    # Your requirement: kill MT5 terminal before app fully stops
     kill_mt5_terminal()
 
 
@@ -101,9 +101,7 @@ def _handle_stop(signum, frame):
     raise SystemExit(0)
 
 
-
 def call_mt5(fn, fn_name: str, kwargs: Dict[str, Any]):
-    # 1) Try native kwargs first
     try:
         return fn(**kwargs) if kwargs else fn()
     except TypeError as e:
@@ -111,7 +109,6 @@ def call_mt5(fn, fn_name: str, kwargs: Dict[str, Any]):
         if "keyword" not in msg:
             raise
 
-    # 2) Fallback mapping for MT5 funcs that require positional args
     pos_order = {
         "symbol_info": ["symbol"],
         "symbol_info_tick": ["symbol"],
@@ -124,22 +121,34 @@ def call_mt5(fn, fn_name: str, kwargs: Dict[str, Any]):
     if keys and all(k in kwargs for k in keys):
         return fn(*[kwargs[k] for k in keys])
 
-    # 3) Generic single-arg fallback (e.g., any symbol)
     if len(kwargs) == 1:
         return fn(next(iter(kwargs.values())))
 
     raise TypeError(f"{fn_name}: cannot map kwargs to positional args: {kwargs}")
 
+
 def mt5_connect(max_retries: int = 5, delay_sec: float = 2.0) -> None:
     for attempt in range(1, max_retries + 1):
-        if mt5.initialize(login=ACCOUNT, password=PASSWORD, server=SERVER):
+        init_kwargs = {}
+        if MT5_PATH:
+            init_kwargs["path"] = MT5_PATH
+
+        if ACCOUNT and PASSWORD and SERVER:
+            ok = mt5.initialize(login=ACCOUNT, password=PASSWORD, server=SERVER, **init_kwargs)
+        else:
+            ok = mt5.initialize(**init_kwargs)
+
+        if ok:
             log.info("MT5 connected on attempt %s", attempt)
             return
+
         err = mt5.last_error()
         log.warning("MT5 connect attempt %s failed: %s", attempt, err)
         mt5.shutdown()
         time.sleep(delay_sec)
+
     raise RuntimeError(f"MT5 connection failed after retries: {mt5.last_error()}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -148,7 +157,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         shutdown_cleanup()
-app = FastAPI(title="MT5 RPC Gateway", version="1.2.0", lifespan=lifespan)
+
+
+app = FastAPI(title="MT5 RPC Gateway", version="1.2.1", lifespan=lifespan)
+
 
 @app.get("/health")
 def health():
@@ -181,7 +193,7 @@ def rpc(body: RpcBody, x_api_key: str = Header(default="")):
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
-# Ensure Ctrl+C / SIGTERM also runs cleanup
+
 atexit.register(shutdown_cleanup)
 signal.signal(signal.SIGINT, _handle_stop)
 signal.signal(signal.SIGTERM, _handle_stop)
