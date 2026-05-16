@@ -27,6 +27,15 @@ This repo runs an MT5 RPC gateway and helper agent for querying/trading via HTTP
 - Writes `mt5.pid` and `gateway.pid`.
 - Stop script kills only those tracked PIDs to avoid touching unrelated MT5 terminals.
 
+### Script configuration source (.env)
+- `start_gateway.ps1` and `stop_gateway.ps1` load `.env` from the same folder as the script (`$PSScriptRoot\.env`).
+- Task Scheduler does not load `.env` itself; it only runs the script.
+- Required placement on host: `C:\mt5-bridge\.env` (if scripts are in `C:\mt5-bridge`).
+- Script-level config keys:
+  - `BRIDGE_ROOT` (optional; defaults to script folder)
+  - `MT5_DIR`
+  - `MT5_EXE`
+
 ## RPC contract
 POST `/rpc` body:
 ```json
