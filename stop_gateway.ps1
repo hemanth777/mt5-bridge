@@ -1,6 +1,20 @@
 $ErrorActionPreference = "SilentlyContinue"
 
-$Root = if ($env:BRIDGE_ROOT) { $env:BRIDGE_ROOT } else { "C:\mt5-bridge" }
+$ScriptRoot = $PSScriptRoot
+if (-not $ScriptRoot) { $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path }
+$EnvFile = Join-Path $ScriptRoot ".env"
+
+if (Test-Path $EnvFile) {
+  Get-Content $EnvFile | ForEach-Object {
+    if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }
+    $name, $value = $_ -split '=', 2
+    if ($name) {
+      [Environment]::SetEnvironmentVariable($name.Trim(), ($value -as [string]).Trim(), "Process")
+    }
+  }
+}
+
+$Root = if ($env:BRIDGE_ROOT) { $env:BRIDGE_ROOT } else { $ScriptRoot }
 $Mt5PidFile = Join-Path $Root "mt5.pid"
 $ApiPidFile = Join-Path $Root "gateway.pid"
 

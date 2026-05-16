@@ -1,6 +1,20 @@
 $ErrorActionPreference = "Stop"
 
-$Root = if ($env:BRIDGE_ROOT) { $env:BRIDGE_ROOT } else { "C:\mt5-bridge" }
+$ScriptRoot = $PSScriptRoot
+if (-not $ScriptRoot) { $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path }
+$EnvFile = Join-Path $ScriptRoot ".env"
+
+if (Test-Path $EnvFile) {
+  Get-Content $EnvFile | ForEach-Object {
+    if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }
+    $name, $value = $_ -split '=', 2
+    if ($name) {
+      [Environment]::SetEnvironmentVariable($name.Trim(), ($value -as [string]).Trim(), "Process")
+    }
+  }
+}
+
+$Root = if ($env:BRIDGE_ROOT) { $env:BRIDGE_ROOT } else { $ScriptRoot }
 $Mt5Dir = if ($env:MT5_DIR) { $env:MT5_DIR } else { "C:\mt5\ExnessDemo" }
 $Mt5Exe = if ($env:MT5_EXE) { $env:MT5_EXE } else { (Join-Path $Mt5Dir "terminal64.exe") }
 $Mt5Args = "/portable"
@@ -26,15 +40,6 @@ Set-Location $Root
 
 # Activate venv
 & "$Root\.venv\Scripts\Activate.ps1"
-
-# Load .env into process env
-if (Test-Path "$Root\.env") {
-  Get-Content "$Root\.env" | ForEach-Object {
-    if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }
-    $name, $value = $_ -split '=', 2
-    [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process")
-  }
-}
 
 # Start dedicated MT5 instance and save PID
 $mt5 = Start-Process -FilePath $Mt5Exe -ArgumentList $Mt5Args -PassThru -WindowStyle Minimized
