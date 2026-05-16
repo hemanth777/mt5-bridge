@@ -1,6 +1,6 @@
 $ErrorActionPreference = "SilentlyContinue"
 
-$Root = "C:\mt5-bridge"
+$Root = if ($env:BRIDGE_ROOT) { $env:BRIDGE_ROOT } else { "C:\mt5-bridge" }
 $Mt5PidFile = Join-Path $Root "mt5.pid"
 $ApiPidFile = Join-Path $Root "gateway.pid"
 

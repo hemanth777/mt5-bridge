@@ -1,7 +1,8 @@
 $ErrorActionPreference = "Stop"
 
-$Root = "C:\mt5-bridge"
-$Mt5Exe = "C:\mt5\ExnessDemo\terminal64.exe"   # adjust if needed
+$Root = if ($env:BRIDGE_ROOT) { $env:BRIDGE_ROOT } else { "C:\mt5-bridge" }
+$Mt5Dir = if ($env:MT5_DIR) { $env:MT5_DIR } else { "C:\mt5\ExnessDemo" }
+$Mt5Exe = if ($env:MT5_EXE) { $env:MT5_EXE } else { (Join-Path $Mt5Dir "terminal64.exe") }
 $Mt5Args = "/portable"
 $Mt5PidFile = Join-Path $Root "mt5.pid"
 $ApiPidFile = Join-Path $Root "gateway.pid"
