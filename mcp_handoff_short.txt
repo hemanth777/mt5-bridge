@@ -1,33 +1,12 @@
-MT5 MCP Handoff (Short, Redacted)
+MT5 MCP Handoff (Short Pointer)
 
-Base URL
-- http://<MT5_HOST_IP>:8080
+Status
+- Legacy pointer only. Do not maintain this file as a separate handoff.
+- Use `AGENT_HANDOFF.md` in this directory as the single maintained bridge handoff.
 
-Auth
-- Header: x-api-key: <API_KEY>
+Primary doc
+- `/home/oc/projects/mt5-bridge/AGENT_HANDOFF.md`
 
-Core endpoints
-- GET /health
-- POST /rpc
-
-RPC body format
-{
-  "function_name": "<allowed_function>",
-  "kwargs": { ... }
-}
-
-Quick examples
-1) Health
-curl -sS http://<MT5_HOST_IP>:8080/health
-
-2) Account info
-curl -sS -X POST http://<MT5_HOST_IP>:8080/rpc \
-  -H 'Content-Type: application/json' \
-  -H 'x-api-key: <API_KEY>' \
-  -d '{"function_name":"account_info"}'
-
-3) BTCUSD tick
-curl -sS -X POST http://<MT5_HOST_IP>:8080/rpc \
-  -H 'Content-Type: application/json' \
-  -H 'x-api-key: <API_KEY>' \
-  -d '{"function_name":"symbol_info_tick","kwargs":{"symbol":"BTCUSD"}}'
+Notes
+- Keep secrets out of git.
+- If this file and `AGENT_HANDOFF.md` disagree, trust `AGENT_HANDOFF.md`.

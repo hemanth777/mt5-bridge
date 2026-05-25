@@ -74,6 +74,7 @@ Response shape:
 - MT5 Python functions may reject keyword args for some methods; gateway maps selected kwargs to positional args.
 - If RPC returns `ok:true` with `result:null`, MT5 session/terminal may be inactive; restart via scripts.
 - Trade requests must still inspect the MT5 trade result/retcode, not just the HTTP status.
+- Historical fix: before 2026-05-25, pending-order cancel/remove requests could fail because request normalization injected placement-only fields into `TRADE_ACTION_REMOVE` bodies. Fixed in commit `26c0ed3`.
 - Task Scheduler “End task” can be hard-kill; prefer controlled stop via `stop_gateway.ps1`.
 
 ## Out of scope
