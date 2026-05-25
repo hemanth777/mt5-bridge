@@ -1,4 +1,5 @@
 import time
+import json
 import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -69,6 +70,7 @@ ALLOWED_FUNCTIONS = {
 }
 
 _CLOSED = False
+_RPC_CACHE = {}
 
 
 class RpcBody(BaseModel):
@@ -105,6 +107,83 @@ TYPE_FILLING_MAP = {
     "ioc": mt5.ORDER_FILLING_IOC,
     "return": mt5.ORDER_FILLING_RETURN,
 }
+
+def _cache_ttl_seconds(fn_name: str) -> float:
+    ttl_ms = os.getenv("MT5_RPC_CACHE_TTL_MS", "").strip()
+    account_ttl_ms = os.getenv("MT5_RPC_ACCOUNT_INFO_CACHE_TTL_MS", "").strip()
+    tick_ttl_ms = os.getenv("MT5_RPC_SYMBOL_TICK_CACHE_TTL_MS", "").strip()
+    info_ttl_ms = os.getenv("MT5_RPC_SYMBOL_INFO_CACHE_TTL_MS", "").strip()
+
+    if fn_name == "account_info" and account_ttl_ms:
+        ttl_ms = account_ttl_ms
+    elif fn_name == "symbol_info_tick" and tick_ttl_ms:
+        ttl_ms = tick_ttl_ms
+    elif fn_name == "symbol_info" and info_ttl_ms:
+        ttl_ms = info_ttl_ms
+
+    if not ttl_ms:
+        defaults = {
+            "account_info": "500",
+            "symbol_info_tick": "250",
+            "symbol_info": "3600000",
+        }
+        ttl_ms = defaults.get(fn_name, "0")
+
+    try:
+        return max(float(ttl_ms) / 1000.0, 0.0)
+    except Exception:
+        return 0.0
+
+
+def _cache_key(fn_name: str, kwargs: Dict[str, Any]):
+    if fn_name not in ("account_info", "symbol_info", "symbol_info_tick"):
+        return None
+    try:
+        return fn_name, json.dumps(kwargs or {}, sort_keys=True, default=str)
+    except Exception:
+        return None
+
+
+def _cache_get(fn_name: str, kwargs: Dict[str, Any]):
+    key = _cache_key(fn_name, kwargs)
+    if key is None:
+        return False, None
+
+    entry = _RPC_CACHE.get(key)
+    if not entry:
+        return False, None
+
+    now = time.monotonic()
+    if entry["expires_at"] <= now:
+        _RPC_CACHE.pop(key, None)
+        return False, None
+
+    return True, entry["result"]
+
+
+def _cache_set(fn_name: str, kwargs: Dict[str, Any], result: Any):
+    ttl = _cache_ttl_seconds(fn_name)
+    if ttl <= 0:
+        return
+
+    key = _cache_key(fn_name, kwargs)
+    if key is None:
+        return
+
+    _RPC_CACHE[key] = {
+        "expires_at": time.monotonic() + ttl,
+        "result": result,
+    }
+
+
+def call_mt5_with_cache(fn, fn_name: str, kwargs: Dict[str, Any]):
+    cached, result = _cache_get(fn_name, kwargs)
+    if cached:
+        return result
+
+    result = call_mt5(fn, fn_name, kwargs)
+    _cache_set(fn_name, kwargs, result)
+    return result
 
 
 def to_jsonable(obj: Any):
@@ -318,13 +397,22 @@ def rpc(body: RpcBody, x_api_key: str = Header(default="")):
     try:
         if fn_name in ("order_send", "order_check"):
             result = call_trade_function(fn_name, kwargs)
+            normalized_request = normalize_trade_request(kwargs.get("request") or {})
+            if fn_name == "order_send" and result is None:
+                return {
+                    "ok": False,
+                    "error": "order_send_none",
+                    "last_error": to_jsonable(mt5.last_error()),
+                    "request": to_jsonable(kwargs.get("request")),
+                    "normalized_request": to_jsonable(normalized_request),
+                }
             return {
                 "ok": True,
                 "result": to_jsonable(result),
-                "normalized_request": to_jsonable(normalize_trade_request(kwargs.get("request") or {})),
+                "normalized_request": to_jsonable(normalized_request),
             }
 
-        result = call_mt5(fn, fn_name, kwargs)
+        result = call_mt5_with_cache(fn, fn_name, kwargs)
         return {"ok": True, "result": to_jsonable(result)}
     except Exception as e:
         return {"ok": False, "error": str(e)}
