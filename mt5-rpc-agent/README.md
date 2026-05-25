@@ -2,6 +2,8 @@
 
 Simple Node agent that talks to your MT5 HTTP RPC gateway.
 
+This package is bridge-local. It should only know the gateway request/response contract and connection config, not higher-level Telegram or orchestration logic from the main MT5 workspace.
+
 ## Env
 The agent auto-loads `.env` from this folder.
 
@@ -16,6 +18,10 @@ The agent auto-loads `.env` from this folder.
 
 ## Output
 - `MT5_RPC_OUTPUT_JSON` (default: `mt5_rpc_output.json`)
+
+## Notes
+- HTTP `200` does not guarantee a trade was accepted; inspect the returned MT5 result payload.
+- Prefer `MT5_RPC_URL` when the gateway address is managed externally.
 
 ## Run
 ```bash

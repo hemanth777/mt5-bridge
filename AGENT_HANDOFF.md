@@ -3,6 +3,15 @@
 ## Purpose
 This repo runs an MT5 RPC gateway and helper agent for querying/trading via HTTP.
 
+## Scope boundary
+This repo is only for the MT5 bridge layer:
+- the FastAPI RPC gateway
+- the Windows start/stop lifecycle scripts
+- the local `mt5-rpc-agent` client and call catalog
+
+It is not the home for higher-level trading pipeline behavior from the main workspace.
+Keep Telegram listener, signal-conversion, risk-routing, backfill, watchdog, and notification logic documented outside this repo unless the bridge contract itself changes.
+
 ## What matters most
 - `api_gateway.py`: FastAPI app exposing `/health`, `/allowed_functions`, `/rpc`
 - `start_gateway.ps1`: starts dedicated MT5 terminal + gateway, stores PID files
@@ -47,17 +56,35 @@ POST `/rpc` body:
 Auth header:
 - `x-api-key: <API_KEY>`
 
+Response shape:
+- success wrapper: `{ "ok": true, "result": ... }`
+- failure wrapper: `{ "ok": false, "error": "..." }`
+- some MT5 failures can still arrive as HTTP 200 with a rejected trade result inside `result`
+
 ## Common calls
 - account info: `{"function_name":"account_info"}`
 - terminal info: `{"function_name":"terminal_info"}`
 - open positions: `{"function_name":"positions_get"}`
 - pending orders: `{"function_name":"orders_get"}`
 - tick: `{"function_name":"symbol_info_tick","kwargs":{"symbol":"BTCUSD"}}`
+- order history: `{"function_name":"history_orders_get","kwargs":{"date_from":"<ISO>","date_to":"<ISO>"}}`
+- deal history: `{"function_name":"history_deals_get","kwargs":{"date_from":"<ISO>","date_to":"<ISO>"}}`
 
 ## Known behavior notes
 - MT5 Python functions may reject keyword args for some methods; gateway maps selected kwargs to positional args.
 - If RPC returns `ok:true` with `result:null`, MT5 session/terminal may be inactive; restart via scripts.
+- Trade requests must still inspect the MT5 trade result/retcode, not just the HTTP status.
 - Task Scheduler “End task” can be hard-kill; prefer controlled stop via `stop_gateway.ps1`.
+
+## Out of scope
+Do not treat this file as the handoff doc for:
+- Telegram feed listener watchdog behavior
+- restart-safe Telegram backfill or channel state files
+- signal conversion and validation model policy
+- risk guard or route-selection policy
+- Telegram execution notifications
+
+Those belong to the main workspace MT5 orchestration docs, not the standalone bridge repo.
 
 ## Security
 - Keep real credentials only in `.env` on host.
