@@ -288,9 +288,19 @@ def normalize_trade_request(request: Dict[str, Any]) -> Dict[str, Any]:
     req = dict(request or {})
 
     req["action"] = _map_enum(req.get("action"), ACTION_MAP)
-    req["type"] = _map_enum(req.get("type"), ORDER_TYPE_MAP)
-    req["type_time"] = _map_enum(req.get("type_time", mt5.ORDER_TIME_GTC), TYPE_TIME_MAP)
-    req["type_filling"] = _map_enum(req.get("type_filling", mt5.ORDER_FILLING_RETURN), TYPE_FILLING_MAP)
+    action = req.get("action")
+
+    if "type" in req and req.get("type") is not None:
+        req["type"] = _map_enum(req.get("type"), ORDER_TYPE_MAP)
+    if action in (mt5.TRADE_ACTION_DEAL, mt5.TRADE_ACTION_PENDING):
+        req["type_time"] = _map_enum(req.get("type_time", mt5.ORDER_TIME_GTC), TYPE_TIME_MAP)
+        req["type_filling"] = _map_enum(req.get("type_filling", mt5.ORDER_FILLING_RETURN), TYPE_FILLING_MAP)
+    elif "type_time" in req and req.get("type_time") is not None:
+        req["type_time"] = _map_enum(req.get("type_time"), TYPE_TIME_MAP)
+    elif "type_time" in req:
+        req.pop("type_time", None)
+    if action not in (mt5.TRADE_ACTION_DEAL, mt5.TRADE_ACTION_PENDING):
+        req.pop("type_filling", None)
 
     for k in ("volume", "price", "sl", "tp", "stoplimit"):
         if k in req and req[k] is not None:
@@ -318,6 +328,20 @@ def normalize_trade_request(request: Dict[str, Any]) -> Dict[str, Any]:
                         req[k] = round(float(req[k]), digits)
         except Exception:
             pass
+
+    if action == mt5.TRADE_ACTION_REMOVE:
+        req.pop("type", None)
+        req.pop("type_time", None)
+        req.pop("type_filling", None)
+        req.pop("volume", None)
+        req.pop("price", None)
+        req.pop("sl", None)
+        req.pop("tp", None)
+        req.pop("stoplimit", None)
+        req.pop("position", None)
+        req.pop("deviation", None)
+        req.pop("magic", None)
+        req.pop("expiration", None)
 
     return req
 
