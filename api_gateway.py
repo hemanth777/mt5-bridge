@@ -108,6 +108,36 @@ TYPE_FILLING_MAP = {
     "return": mt5.ORDER_FILLING_RETURN,
 }
 
+
+def normalize_filling_mode(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    raw = str(value).strip().lower()
+    if raw == "fok":
+        return mt5.ORDER_FILLING_FOK
+    if raw == "ioc":
+        return mt5.ORDER_FILLING_IOC
+    if raw == "return":
+        return mt5.ORDER_FILLING_RETURN
+    try:
+        return int(raw)
+    except Exception:
+        return None
+
+
+def filling_mode_retry_sequence(initial):
+    current = normalize_filling_mode(initial)
+    preferred = [
+        mt5.ORDER_FILLING_IOC,
+        mt5.ORDER_FILLING_FOK,
+        mt5.ORDER_FILLING_RETURN,
+    ]
+    if current is None:
+        return preferred
+    return [current] + [mode for mode in preferred if mode != current]
+
 def _cache_ttl_seconds(fn_name: str) -> float:
     ttl_ms = os.getenv("MT5_RPC_CACHE_TTL_MS", "").strip()
     account_ttl_ms = os.getenv("MT5_RPC_ACCOUNT_INFO_CACHE_TTL_MS", "").strip()
@@ -355,7 +385,32 @@ def call_trade_function(fn_name: str, kwargs: Dict[str, Any]):
 
     if fn_name == "order_check":
         return mt5.order_check(req)
-    return mt5.order_send(req)
+
+    attempts = []
+    result = None
+    final_req = dict(req)
+    for filling_mode in filling_mode_retry_sequence(req.get("type_filling")):
+        attempt_req = dict(req)
+        attempt_req["type_filling"] = filling_mode
+        result = mt5.order_send(attempt_req)
+        comment = getattr(result, "comment", None) if result is not None else None
+        retcode = getattr(result, "retcode", None) if result is not None else None
+        attempts.append({
+            "type_filling": attempt_req["type_filling"],
+            "retcode": int(retcode) if retcode is not None else None,
+            "comment": comment,
+        })
+        final_req = attempt_req
+        if result is None or int(retcode) != 10030:
+            break
+
+    if result is not None and len(attempts) > 1 and hasattr(result, "_asdict"):
+        payload = result._asdict()
+        payload["fill_mode_retry"] = attempts
+        payload["request"] = to_jsonable(final_req)
+        return payload
+
+    return result
 
 
 def mt5_connect(max_retries: int = 5, delay_sec: float = 2.0) -> None:
